@@ -1,0 +1,109 @@
+<!-- File: src/app/steps/step4-process-import/step4-process-import.component.html -->
+<div class="step-box">
+  <div class="section-title">Process Import</div>
+
+  <p>Please click "Validate" to check your records before processing.</p>
+
+  <!-- Validation message -->
+  <div
+    *ngIf="validationMessage"
+    class="validation-message"
+    [ngClass]="{
+      'validation-success': validated,
+      'validation-error': validationMessage === 'Validation failed.'
+    }"
+  >
+    {{ validationMessage }}
+  </div>
+
+  <!-- Data table -->
+  <div class="table-container">
+    <table class="mapping-table">
+      <thead>
+        <tr>
+          <th>Select</th>
+          <th *ngFor="let hdr of headers">{{ hdr }}</th>
+          <th *ngIf="validated">Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let record of records"
+          [class.valid]="isRowValid(record)"
+          [class.invalid]="!isRowValid(record)"
+        >
+          <td>
+            <input type="checkbox" [(ngModel)]="record.selected" />
+          </td>
+          <td
+            *ngFor="let hdr of headers"
+            [class.invalid-cell]="isCellInvalid(record, hdr)"
+          >
+            {{ record[hdr] }}
+          </td>
+          <td *ngIf="validated">
+            <ng-container *ngIf="record.error.trim(); else noError">
+              <button
+                type="button"
+                class="error-link"
+                (click)="openErrorModal(record)"
+              >
+                Click to view {{ getErrorCount(record) }} errors
+              </button>
+            </ng-container>
+            <ng-template #noError>—</ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="buttons horizontal">
+    <button class="back-button" (click)="onBack()">← Back</button>
+    <button class="validate-button" (click)="validateRecords()">
+      Validate
+    </button>
+    <button
+      class="next-button"
+      [disabled]="!canSubmit()"
+      (click)="onSubmit()"
+    >
+      Submit →
+    </button>
+  </div>
+
+  <!-- Cell-level Error modal -->
+  <div *ngIf="showModal" class="confirm-modal-overlay">
+    <div class="confirm-modal">
+      <h3>Validation Errors</h3>
+      <ul>
+        <li *ngFor="let err of modalErrors">{{ err }}</li>
+      </ul>
+      <div class="confirm-modal-actions">
+        <button class="back-button" (click)="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invalid-selection Warning modal -->
+  <div *ngIf="invalidSelectionModal" class="confirm-modal-overlay">
+    <div class="confirm-modal">
+      <h3>Cannot Submit</h3>
+      <p>
+        You’ve selected the following invalid
+        row<span *ngIf="invalidSelectedRows.length > 1">s</span>:
+        {{ invalidSelectedRows.join(', ') }}.
+      </p>
+      <p>Please deselect or correct those before submitting.</p>
+      <div class="confirm-modal-actions">
+        <button
+          class="back-button"
+          (click)="closeInvalidSelectionModal()"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

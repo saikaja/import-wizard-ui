@@ -1,0 +1,8 @@
+{
+  "allowedRoles": [
+    "view",
+    "edit",
+    "delete",
+    "admin"
+  ]
+}

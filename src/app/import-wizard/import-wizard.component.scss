@@ -1,0 +1,446 @@
+/* src/app/import-wizard.component.scss */
+:host ::ng-deep {
+  /* ─── Reset & Base ───────────────────────────────────────────────── */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  * {
+    font-family: 'Roboto', sans-serif;
+  }
+  body {
+    background-color: #f7f7f7;
+    margin: 0;
+  }
+
+  /* ─── Wizard Container & Steps ───────────────────────────────────── */
+  .wizard-container {
+    max-width: 1000px;
+    margin: auto;
+    padding: 20px;
+    background: #fff;
+    border: 2px solid #ffcc00;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .step-header {
+    font-size: 22px;
+    font-weight: bold;
+    color: #fff;
+    background: purple;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    text-align: center;
+    opacity: 0.8;
+  }
+  .wizard-steps {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+
+    .wizard-step {
+      flex: 1;
+      text-align: center;
+      background: #ccc;
+      color: black;
+      padding: 10px 0;
+      border-radius: 4px;
+      font-size: 15px;
+      position: relative;
+      z-index: 1;
+
+      &.active     { background: orange; }
+      &.completed { background: green;  color: white; }
+      &.error     { background: red;    color: white; }
+
+      .wizard-arrow {
+        font-size: 18px;
+        margin: 0 10px;
+        font-weight: bold;
+      }
+    }
+  }
+
+  /* ─── Step Box & Titles ───────────────────────────────────────────── */
+  .step-box {
+    border: 1px solid #ccc;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    background: #fafafa;
+  }
+  .section-title,
+  .step-title {
+    font-size: 19px;
+    margin-bottom: 15px;
+    background: #007ab7 !important;
+    color: white;
+    border-radius: 4px;
+    padding: 6px;
+    text-align: center;
+  }
+
+  /* ─── Inputs & File Upload ───────────────────────────────────────── */
+  .radio-options,
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  }
+
+  .template-select {
+    width: 100%;
+    padding: 4px 8px;
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid #bbb;
+    background: #f0f4f8;
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,\
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="7" viewBox="0 0 12 7">\
+        <path fill="%23666" d="M6 7L0 0h12z"/>\
+      </svg>');
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px 7px;
+    margin-bottom: 20px;
+
+    &:hover { border-color: #007ab7; }
+  }
+
+  .file-upload {
+    border: 2px dashed #007acc;
+    padding: 20px;
+    text-align: center;
+    margin: 15px 0;
+    color: #007acc;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover { background: #f0faff; }
+  }
+
+  .validation-message {
+  margin-top: 2px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+  text-align: center;
+
+  &.validation-success {
+    background-color: #d4edda;  // pale green
+    color: #155724;              // dark green
+    border: 1px solid #c3e6cb;
+  }
+
+  &.validation-error {
+    background-color: #f8d7da;  // pale red
+    color: #721c24;             // dark red
+    border: 1px solid #f5c6cb;
+  }
+}
+
+  /* ─── Base Mapping Table Styles ──────────────────────────────────── */
+  .mapping-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+
+    thead {
+      background-color: #4d148cb3;
+      color: white;
+    }
+    tbody tr:nth-child(even) {
+      background-color: #f6eefeb3;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+      white-space: nowrap;
+      min-width: calc(100% / 10);
+    }
+
+    /* un-bold your column headers here */
+    th { font-weight: normal; }
+
+    /* explicitly size the <select>s in the mapping table */
+    select {
+      width: 200px;
+      height: 35px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      appearance: auto;
+    }
+  }
+
+  /* ─── Step 4: Horizontal Scroll & Sticky Headers/First Col ──────── */
+  .table-container {
+    overflow-x: auto;
+  }
+  .table-container .mapping-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .table-container .mapping-table th:first-child {
+    position: sticky;
+    left: 0;
+    background: #4d148cb3;
+    color: white;
+    z-index: 3;
+  }
+  .table-container .mapping-table td:first-child {
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 1;
+  }
+  .table-container .mapping-table th:first-child,
+  .table-container .mapping-table td:first-child {
+    background-clip: padding-box;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+  }
+
+  /* ─── Row Validity Colors ───────────────────────────────────────── */
+  .valid {
+    background-color: #d4edda !important;
+  }
+  .invalid {
+    background-color: #f8d7da !important;
+  }
+  
+  .invalid-cell {
+    background-color: #ffeb3b !important;  /* bright yellow fill */
+    border: 1px solid #fdd835 !important;  /* golden yellow outline */
+  }
+  /* ─── Buttons & Controls ─────────────────────────────────────────── */
+  .buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+
+    button {
+      padding: 10px 20px;
+      margin: 0;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+
+      &.active          { background: #4d148c; }
+      &.validate-button { background: #ff6200; }
+      &:disabled        { background: grey; }
+    }
+
+    .download-button { background: #4d148c; }
+    .next-button     { background: #4d148c; }
+    .back-button     { background: #4d148c; }
+  }
+  .buttons.horizontal {
+    flex-direction: row !important;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  /* ─── Category Group ─────────────────────────────────────────────── */
+  .category-group {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+
+    .category-box {
+      flex: 1;
+      background: #eaeaea;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
+
+      h4 { font-size: 18px; margin-bottom: 10px; }
+
+      .option-items label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+    }
+
+    .right-panel {
+      flex: 1;
+      background: #f9f9f9;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+
+      h3 {
+        font-size: 18px;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 8px;
+        margin-bottom: 15px;
+      }
+      select {
+        width: 100%;
+        padding: 8px;
+        min-height: 120px;
+        font-size: 15px;
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  /* ─── Required‐field star & legend ───────────────────────────────── */
+  .required-star   { color: red; margin-left: 2px; font-weight: bold; }
+  .required-legend { margin-top: 8px; font-size: 12px; color: #555; }
+
+  /* ─── Progress & Summary Panels ─────────────────────────────────── */
+  #progressIndicator { display: none; }
+  .final-report { border: 2px dashed #ffcc00; padding: 15px; background: #fff; }
+  .summary-section,
+  .failed-records-section {
+    background: #fefefe;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+
+    h4 {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      th, td {
+        border: 1px solid #ccc;
+        padding: 10px;
+        text-align: center;
+      }
+    }
+  }
+
+  /* ─── Save‐Template Panel ───────────────────────────────────────── */
+  .save-template-panel {
+    background: #f9f9f9;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 20px;
+
+    h4 {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin: 0 0 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+
+      &.required::after { content: " *"; color: red; }
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background: purple;
+      color: white;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+  }
+
+  /* ─── Login Component Styles ─────────────────────────────────────── */
+  .login-container {
+    max-width: 400px;
+    margin: 2rem auto;
+
+    form div { margin-bottom: 1rem; }
+    form label { display: block; margin-bottom: 0.3rem; }
+    form input {
+      width: 100%;
+      padding: 0.5rem;
+      box-sizing: border-box;
+    }
+    button { padding: 0.5rem 1rem; }
+    .error { margin-top: 1rem; color: red; }
+  }
+
+  /* ─── Confirm Modal ─────────────────────────────────────────────── */
+  .confirm-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  .confirm-modal {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    max-width: 360px;
+    width: 90%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .confirm-modal h3 {
+    margin-top: 0;
+    font-size: 1.25rem;
+  }
+  .confirm-modal p {
+    margin: 1rem 0;
+    line-height: 1.4;
+  }
+  .confirm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+  .btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background-color: #3f51b5;
+    color: #fff;
+  }
+  .btn-secondary {
+    background-color: #999;
+    color: #fff;
+  }
+}

@@ -1,0 +1,35 @@
+<!-- src/app/steps/step2-file-handling/step2-file-handling.component.html -->
+<div class="step-box">
+  <div class="step-title">Step 2: File Handling</div>
+
+  <p *ngIf="validationMessage"
+     [class.valid]="isFileValid"
+     [class.invalid]="!isFileValid"
+     class="validation-message">
+    {{ validationMessage }}
+  </p>
+
+  <p class="section">
+    {{ importMethod === 'new'
+      ? 'Please upload your populated Excel file.'
+      : 'Please upload your populated Excel file for the selected template.' }}
+  </p>
+
+  <div class="file-upload" (click)="fileInput.click()">
+    {{ uploadedFileName || 'Click here to upload file' }}
+    <input #fileInput
+           type="file"
+           accept=".xlsx,.csv"
+           (change)="handleFileUpload($event)"
+           style="display:none" />
+  </div>
+
+  <div class="buttons">
+    <button class="back-button"  (click)="onBack()">← Back</button>
+    <button class="next-button"
+            [disabled]="!uploadedFile || !isFileValid"
+            (click)="onNext()">
+      Next →
+    </button>
+  </div>
+</div>

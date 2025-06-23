@@ -1,0 +1,73 @@
+<!-- src/app/steps/step3-map-columns/step3-map-columns.component.html -->
+
+<div class="step-box">
+  <div class="step-title">Map Excel to Database Fields</div>
+
+  <!-- Prompt or fallback -->
+  <ng-container *ngIf="excelColumns.length; else noHeaders">
+    <p>Please select a mapping for each Excel column:</p>
+  </ng-container>
+  <ng-template #noHeaders>
+    <p class="validation-message">
+      ⚠️ No columns found. Please go back and upload a valid Excel file.
+    </p>
+  </ng-template>
+
+  <!-- Mapping table -->
+  <table class="mapping-table" *ngIf="excelColumns.length">
+    <thead>
+      <tr>
+        <th>Excel Column</th>
+        <th>Database Field</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let col of excelColumns; let i = index">
+        <td>
+          {{ col }}
+          <!-- show star when the selected DB field for this row is required -->
+          <span
+            *ngIf="isRequiredMapping(col)"
+            class="required-star"
+          >*</span>
+        </td>
+        <td>
+          <select
+            name="mapping{{ i }}"
+            [(ngModel)]="mappings[col]"
+          >
+            <option value="">Select Field</option>
+            <option
+              *ngFor="let db of databaseFields"
+              [value]="db"
+            >
+              {{ db }}
+            </option>
+          </select>
+        </td>
+        <td [style.color]="isMatched(col) ? 'green' : 'red'">
+          {{ isMatched(col) ? 'Matched' : 'Unmatched' }}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Legend for the required‐field star -->
+  <p class="required-note" *ngIf="excelColumns.length">
+    <span class="required-star">*</span> Required field
+  </p>
+
+  <!-- Navigation buttons -->
+  <div class="buttons">
+    <button class="back-button" (click)="onBack()">← Back</button>
+    <button
+      class="next-button"
+      [disabled]="!areRequiredMatched()"
+      [class.active]="areRequiredMatched()"
+      (click)="onNext()"
+    >
+      Next →
+    </button>
+  </div>
+</div>
