@@ -17,7 +17,10 @@ import { ExcelService } from '../../services/excel.service';
 import { MappingService } from '../../services/mapping.service';
 import { FileStoreService } from '../../services/file-store.service';
 import { ImportSummaryService } from '../../services/import-summary.service';
-import type { ImportSummary, FailedRecord } from '../../services/import-summary.service';
+
+import { ImportResultService } from '../../services/import-result.service';
+import { ImportUserInputDto }  from '../../models/import-user-input-dto';
+import { ImportResultDto }     from '../../models/import-result-dto';
 
 interface ServerRowValidation {
   row: number;
@@ -35,8 +38,8 @@ interface ServerRowValidation {
   templateUrl: './step4-process-import.component.html'
 })
 export class Step4ProcessImportComponent implements OnInit, OnDestroy {
-  @Output() back = new EventEmitter<void>();
-  @Output() next = new EventEmitter<void>();
+  @Output() back  = new EventEmitter<void>();
+  @Output() next  = new EventEmitter<void>();
 
   headers: string[] = [];
   records: Array<Record<string, any> & {
@@ -49,25 +52,37 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
   validated = false;
   validationMessage = '';
 
-  // Existing modal for cell-level errors
   showModal = false;
   modalErrors: string[] = [];
 
-  // New: modal for invalid-selection warning
   invalidSelectionModal = false;
   invalidSelectedRows: number[] = [];
 
   private subs = new Subscription();
+
+  private dbToInputMap: Record<string, keyof ImportUserInputDto> = {
+    CompanyId:    'company',
+    LocationCode: 'locationCode',
+    FirstName:    'firstName',
+    LastName:     'lastName',
+    EmployeeId:   'employeeId',
+    Email:        'email',
+    Role:         'role',
+    Printer:      'printer',
+    Activate:     'activate',
+    Comments:     'comments'
+  };
 
   constructor(
     private excelService: ExcelService,
     private mappingSvc: MappingService,
     private fileStore: FileStoreService,
     private http: HttpClient,
+    private importResultSvc: ImportResultService,
     private summarySvc: ImportSummaryService
   ) {}
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.subs.add(
       this.mappingSvc.mappings$.subscribe(m => (this.mappings = m))
     );
@@ -75,24 +90,22 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
       this.excelService.headers$.subscribe(h => (this.headers = h))
     );
     this.subs.add(
-      this.excelService.rows$.subscribe(raw => {
+      this.excelService.rows$.subscribe(raw =>
         this.records = raw.map(r => ({
           ...r,
           selected: false,
           error: '',
           errorFields: []
-        }));
-      })
+        }))
+      )
     );
   }
 
-  ngOnDestroy() {
+  ngOnDestroy(): void {
     this.subs.unsubscribe();
   }
 
-  validateRecords() {
-    console.log('🔔 validateRecords() called – mappings:', this.mappings);
-
+  validateRecords(): void {
     const file = this.fileStore.getFile();
     if (!file) {
       this.validationMessage =
@@ -107,11 +120,6 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
     form.append('file', file, file.name);
     form.append('mappings', JSON.stringify(this.mappings));
 
-    console.log(
-      '➡️ Posting FormData:',
-      { fileName: file.name, mappings: this.mappings }
-    );
-
     this.http
       .post<ServerRowValidation[]>(
         `${environment.apiUrl}/ImportValidation/validateRows`,
@@ -119,8 +127,6 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
       )
       .subscribe(
         results => {
-          console.log('✅ server returned rows:', results);
-
           this.records = this.records.map((r, i) => {
             const srv = results.find(x => x.row === i);
             if (!srv) return r;
@@ -129,15 +135,12 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
             const errorHeaders = new Set<string>();
 
             for (const prop of srv.memberNames) {
-              if (prop === 'CompanyName') {
-                const hdr = Object.entries(this.mappings)
-                  .find(([h, p]) => p === 'CompanyId')?.[0];
-                if (hdr) errorHeaders.add(hdr);
-              } else {
-                const hdr = Object.entries(this.mappings)
-                  .find(([h, p]) => p === prop)?.[0];
-                if (hdr) errorHeaders.add(hdr);
-              }
+              const hdr = Object.entries(this.mappings).find(([h, p]) =>
+                prop === 'CompanyName'
+                  ? (p === 'Company' || p === 'CompanyId')
+                  : p === prop
+              )?.[0];
+              if (hdr) errorHeaders.add(hdr);
             }
 
             return {
@@ -162,59 +165,70 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
   }
 
   canSubmit(): boolean {
-    return this.records.some(r => r.selected);
+    return this.validated && this.records.some(r => r.selected);
   }
 
-  onSubmit() {
-    // nothing selected → do nothing
-    if (!this.canSubmit()) {
-      return;
-    }
+  onSubmit(): void {
+    if (!this.canSubmit()) return;
 
-    // compute invalid row numbers from the full table
     this.invalidSelectedRows = this.records
       .map((r, idx) => ({ r, idx }))
       .filter(({ r }) => r.selected && !this.isRowValid(r))
-      .map(({ idx }) => idx + 1); // +1 for human-friendly numbering
+      .map(({ idx }) => idx + 1);
 
-    // if any invalid, show the warning and bail
     if (this.invalidSelectedRows.length) {
       this.invalidSelectionModal = true;
       return;
     }
 
-    // all good → build summary and proceed
-    const firstHdr = Object.keys(this.mappings).find(
-      h => this.mappings[h] === 'FirstName'
-    )!;
-
     const selected = this.records.filter(r => r.selected);
-    const failedRecords: FailedRecord[] = selected
-      .filter(r => !this.isRowValid(r))
-      .map(r => ({
-        firstName: r[firstHdr],
-        errors: r.error
-          .split(';')
-          .map(e => e.trim())
-          .filter(Boolean)
-      }));
+    const inputs: ImportUserInputDto[] = selected.map(r => {
+      const dto: any = {};
+      for (const hdr of Object.keys(this.mappings)) {
+        const dbField = this.mappings[hdr];
+        const prop    = this.dbToInputMap[dbField];
+        if (prop) {
+          let val = r[hdr];
+          if (prop === 'activate') {
+            // ensure boolean becomes lowercase string
+            val = String(val).toLowerCase();
+          }
+          dto[prop] = val;
+        }
+      }
+      return dto as ImportUserInputDto;
+    });
 
-    const summary: ImportSummary = {
-      total: selected.length,
-      successful: selected.filter(r => this.isRowValid(r)).length,
-      failed: failedRecords.length,
-      failedRecords
-    };
+    this.importResultSvc.importUsers(inputs).subscribe(
+      (results: ImportResultDto[]) => {
+        const total      = results.length;
+        const successful = results.filter(x => x.inserted).length;
+        const failed     = total - successful;
 
-    this.summarySvc.setSummary(summary);
-    this.next.emit();
+        const failedRecords = results
+          .filter(x => !x.inserted)
+          .map(r => {
+            const rec = selected.find(s => s['Email'] === r.email)!;
+            return {
+              firstName: rec[this.getHeaderFor('FirstName')],
+              errors:    [r.errorMessage ?? 'Unknown error']
+            };
+          });
+
+        this.summarySvc.setSummary({ total, successful, failed, failedRecords });
+        this.next.emit();
+      },
+      err => {
+        console.error('Import API failed', err);
+      }
+    );
   }
 
-  onBack() {
+  onBack(): void {
     this.back.emit();
   }
 
-  openErrorModal(r: { error: string }) {
+  openErrorModal(r: { error: string }): void {
     this.modalErrors = r.error
       .split(';')
       .map(e => e.trim())
@@ -222,12 +236,11 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
     this.showModal = true;
   }
 
-  closeModal() {
+  closeModal(): void {
     this.showModal = false;
   }
 
-  /** Close the invalid-selection warning */
-  closeInvalidSelectionModal() {
+  closeInvalidSelectionModal(): void {
     this.invalidSelectionModal = false;
   }
 
@@ -240,5 +253,10 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
 
   isCellInvalid(record: { errorFields: string[] }, hdr: string): boolean {
     return record.errorFields.includes(hdr);
+  }
+
+  private getHeaderFor(prop: string): string {
+    const entry = Object.entries(this.mappings).find(([_, p]) => p === prop);
+    return entry ? entry[0] : '';
   }
 }

@@ -32,7 +32,7 @@ export class Step3MapColumnsComponent implements OnInit, OnDestroy {
   private expectedMapping: Record<string, string> = {};
   private subs = new Subscription();
 
-  // Only these truly payload fields are required now
+  // validation requires these fields
   private readonly REQUIRED_DB_FIELDS = [
     'FirstName',
     'LastName',
@@ -41,7 +41,7 @@ export class Step3MapColumnsComponent implements OnInit, OnDestroy {
     'Printer'
   ];
 
-  // Whitelist the fields coming from your hierarchy service
+  // from your hierarchy service
   private readonly USER_DB_FIELDS = [
     'FirstName',
     'LastName',
@@ -53,7 +53,7 @@ export class Step3MapColumnsComponent implements OnInit, OnDestroy {
     'Comments'
   ];
 
-  // Always include these two so they show up in the dropdown
+  // *** revert Company → CompanyId for validation ***
   private readonly MANUAL_FIELDS = [
     { displayName: 'Company',  dbColumnName: 'CompanyId'   },
     { displayName: 'Location', dbColumnName: 'LocationCode' }
@@ -89,30 +89,25 @@ export class Step3MapColumnsComponent implements OnInit, OnDestroy {
   private loadHierarchyAndAutoMap(): void {
     this.subs.add(
       this.hierarchySvc.getAll().subscribe(hierarchies => {
-        // 1) get service-driven columns
         const serviceCols: SectionColumnDto[] = hierarchies
           .flatMap(c => c.sections)
           .flatMap(s => s.columns)
           .filter(c => this.USER_DB_FIELDS.includes(c.dbColumnName));
 
-        // 2) map displayName → dbColumnName
         this.expectedMapping = {};
         serviceCols.forEach(c => {
           this.expectedMapping[c.displayName] = c.dbColumnName;
         });
-        // 3) add manual entries
         this.MANUAL_FIELDS.forEach(m => {
           this.expectedMapping[m.displayName] = m.dbColumnName;
         });
 
-        // 4) dropdown options = union of both sets
         const allDbNames = [
           ...serviceCols.map(c => c.dbColumnName),
           ...this.MANUAL_FIELDS.map(m => m.dbColumnName)
         ];
         this.databaseFields = Array.from(new Set(allDbNames));
 
-        // 5) auto-map exact matches
         this.mappings = {};
         this.excelColumns.forEach(header => {
           const db = this.expectedMapping[header];
@@ -124,27 +119,22 @@ export class Step3MapColumnsComponent implements OnInit, OnDestroy {
     );
   }
 
-  /** Has this column been mapped? */
   isMatched(header: string): boolean {
     return !!this.mappings[header];
   }
 
-  /** Is this a required payload field? */
   isRequiredMapping(header: string): boolean {
     const db = this.mappings[header];
     return this.REQUIRED_DB_FIELDS.includes(db);
   }
 
-  /** All required payload fields must be mapped before Next */
   areRequiredMatched(): boolean {
     const chosen = Object.values(this.mappings);
     return this.REQUIRED_DB_FIELDS.every(req => chosen.includes(req));
   }
 
   onNext(): void {
-    if (!this.areRequiredMatched()) {
-      return; // or display a warning
-    }
+    if (!this.areRequiredMatched()) return;
     this.mappingSvc.setMappings(this.mappings);
     this.next.emit();
   }
