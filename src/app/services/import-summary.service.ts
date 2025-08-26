@@ -8,6 +8,7 @@ export interface FailedRecord {
 export interface ImportSummary {
   total: number;
   successful: number;
+  originalCount: number; 
   failed: number;
   failedRecords: FailedRecord[];
 }
@@ -17,6 +18,7 @@ export class ImportSummaryService {
   private summary: ImportSummary = {
     total: 0,
     successful: 0,
+    originalCount: 0,
     failed: 0,
     failedRecords: []
   };

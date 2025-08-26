@@ -1,93 +1,125 @@
-<div class="step-title">Summary</div>
+<div class="step-box">
+  <!-- Confirmation banner -->
+  <div class="section-title">Your request has been submitted!</div>
+  <p>Your import has been processed. See the details below.</p>
 
-<div class="summary-section">
-  <h4>Import Summary</h4>
-  <table class="mapping-table">
-    <thead>
-      <tr>
-        <th>Total Records</th>
-        <th>Successful</th>
-        <th>Failed</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>{{ total }}</td>
-        <td style="color: green;">{{ successful }}</td>
-        <td style="color: red;">{{ failed }}</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+  <!-- Show Summary Button -->
+  <div class="summary-toggle" *ngIf="!showSummary">
+    <button class="btn btn-primary" (click)="showSummary = true">Show Summary</button>
+  </div>
 
-<div class="failed-records-section" *ngIf="failed > 0">
-  <h4>Failed Records Details</h4>
-  <table class="mapping-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Error</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let rec of failedRecords">
-        <td>{{ rec.firstName }}</td>
-        <td>
-          <!-- button instead of <a href> -->
-          <button type="button"
-                  class="error-link"
-                  (click)="openErrors(rec)">
-            Click to view {{ rec.errors.length }} errors
-          </button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- Modal popup reusing your confirm-modal styles -->
-<ng-container *ngIf="showModal">
-  <div class="confirm-modal-overlay">
-    <div class="confirm-modal">
-      <h4>Error Details</h4>
-      <ul>
-        <li *ngFor="let e of modalErrors">{{ e }}</li>
-      </ul>
-      <div class="confirm-modal-actions">
-        <button class="btn btn-secondary" (click)="closeModal()">Close</button>
-      </div>
+  <!-- Status banner + manual refresh controls (always show if we have queue info) -->
+  <div *ngIf="queuedInfo" class="alert alert-info"
+       style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <span>{{ bannerText }}</span>
+    <div>
+      <button class="btn btn-secondary" (click)="refreshStatus()" style="margin-right:0.5rem">Refresh status</button>
+      <button class="btn btn-secondary" (click)="refresh()">Refresh counts</button>
     </div>
   </div>
-</ng-container>
 
-<!-- Save Template Panel -->
-<div class="save-template-panel">
-  <h4>Save Template</h4>
-  <label class="required" for="templateName">Template Name</label>
-  <input
-    type="text"
-    id="templateName"
-    [(ngModel)]="templateName"
-    placeholder="Enter Template Name"
-  />
+  <!-- Summary and Failed Records Display -->
+  <div *ngIf="showSummary">
+    <!-- Summary -->
+    <div class="step-title">Summary</div>
+    <div class="summary-section">
+      <h4>Import Summary</h4>
+      <table class="mapping-table">
+        <thead>
+          <tr>
+            <th>Total Records</th>
+            <th>Successful</th>
+            <th>Failed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ total }}</td>
+            <td class="success-count">{{ successful }}</td>
+            <td class="failed-count">
+              {{ failed }}
+              <!-- See details appears only when there are failures -->
+              <button class="btn btn-link" *ngIf="failed > 0" (click)="seeDetails()">
+                See details
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-  <label for="templatePermission">Template Access Permission</label>
-  <select
-    id="templatePermission"
-    [(ngModel)]="permission"
-    class="template-select"
-  >
-    <option value="public">Public</option>
-    <option value="private">Private</option>
-    <option value="restricted">Restricted</option>
-  </select>
+    <!-- Failed records details (only after clicking See details) -->
+    <div class="failed-records-section" *ngIf="failed > 0 && detailsLoaded">
+      <h4>Failed Records Details</h4>
+      <table class="mapping-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let rec of failedRecords">
+            <td>{{ rec.firstName }}</td>
+            <td>
+              <button
+                type="button"
+                class="error-link"
+                (click)="openErrors(rec)">
+                Click to view {{ rec.errors.length }} error{{ rec.errors.length > 1 ? 's' : '' }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-  <button (click)="onSaveTemplate()">Save Template</button>
-</div>
+    <!-- Error-Details Modal -->
+    <ng-container *ngIf="showModal">
+      <div class="confirm-modal-overlay">
+        <div class="confirm-modal">
+          <h4>Error Details</h4>
+          <ul>
+            <li *ngFor="let e of modalErrors">{{ e }}</li>
+          </ul>
+          <div class="confirm-modal-actions">
+            <button class="btn btn-secondary" (click)="closeModal()">Close</button>
+          </div>
+        </div>
+      </div>
+    </ng-container>
 
-<!-- Action Buttons -->
-<div class="buttons horizontal">
-  <button class="back-button" (click)="onRestart()">← Start Over</button>
-  <button class="next-button" (click)="onFinish()">Finish</button>
-  <button class="download-button" (click)="onDownload()">Download Results</button>
+    <!-- Save-Template Panel -->
+    <div class="save-template-panel">
+      <h4>Save Template</h4>
+      <label class="required" for="templateName">Template Name</label>
+      <input
+        type="text"
+        id="templateName"
+        [(ngModel)]="templateName"
+        placeholder="Enter template name"
+      />
+      <button (click)="onSaveTemplate()">Save as Template</button>
+    </div>
+
+    <!-- Save-Status Modal -->
+    <ng-container *ngIf="saveModalVisible">
+      <div class="confirm-modal-overlay">
+        <div class="confirm-modal">
+          <h4>{{ saveModalTitle }}</h4>
+          <p>{{ saveModalMessage }}</p>
+          <div class="confirm-modal-actions">
+            <button class="btn btn-primary" (click)="closeSaveModal()">OK</button>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Navigation buttons -->
+    <div class="buttons horizontal">
+      <button class="back-button" (click)="onRestart()">← Start Over</button>
+      <button class="next-button" (click)="onFinish()">Finish</button>
+      <button class="download-button" (click)="onDownload()">Download Results</button>
+    </div>
+  </div>
 </div>

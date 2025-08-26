@@ -1,68 +1,115 @@
-<div class="wizard-container">
-  <!-- Header -->
-  <div class="step-header">Full Import Workflow Wizard</div>
+<!-- src/app/import-wizard/import-wizard.component.html -->
+<div class="layout">
+  <!-- Sidebar Menu (always visible) -->
+  <nav class="sidebar">
+    <div class="menu-header">Menu</div>
+    <ul>
+      <li>
+        <a 
+           (click)="goToDashboard()"
+           [class.active]="currentStep === 0">
+          Dashboard
+        </a>
+      </li>
+      <li>
+        <a 
+           (click)="goToStep(1)"
+           [class.active]="currentStep === 1">
+          Create Import
+        </a>
+      </li>
+      <li>
+        <a 
+           (click)="showHistory()"
+           [class.active]="currentStep === -1">
+          Import History
+        </a>
+      </li>
+    </ul>
+  </nav>
 
-  <!-- Step Tracker -->
-  <div class="wizard-steps">
-    <ng-container *ngFor="let step of [1, 2, 3, 4, 5]; let i = index">
-  <div
-    class="wizard-step"
-    [ngClass]="{
-      'active': step === currentStep,
-      'completed': step < currentStep,
-      'inactive': step > currentStep
-    }"
-  >
-    {{
-      step === 1 ? 'Data & Import' :
-      step === 2 ? 'File Handling' :
-      step === 3 ? 'Map Columns' :
-      step === 4 ? 'Process Import' : 'Summary'
-    }}
-  </div>
+  <!-- Main content box (yellow border) -->
+  <div class="content">
+    <div class="wizard-container">
 
-  <!-- Add arrow between steps -->
-    <div *ngIf="i < 4" class="wizard-arrow">
-      <svg width="30" height="8" viewBox="0 0 30 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <line x1="0" y1="4" x2="26" y2="4" stroke="black" stroke-width="2"/>
-        <polyline points="22,1 26,4 22,7" fill="none" stroke="black" stroke-width="2"/>
-      </svg>
+      <!-- ▶ Dashboard View -->
+      <ng-container *ngIf="currentStep === 0">
+        <div class="step-header">Welcome to Imports</div>
+        <div class="dashboard-body">
+          <p>Use the menu to create a new import or view your import history.</p>
         </div>
-    </ng-container>
+      </ng-container>
+
+      <!-- ▶ Wizard View -->
+      <ng-container *ngIf="currentStep > 0">
+        <!-- Header -->
+        <div class="step-header">Full Import Workflow Wizard</div>
+
+        <!-- Step Tracker -->
+        <div class="wizard-steps">
+          <ng-container *ngFor="let step of [1,2,3,4,5]; let i = index">
+            <div
+              class="wizard-step"
+              [ngClass]="{
+                'active':    step === currentStep,
+                'completed': step < currentStep,
+                'inactive':  step > currentStep
+              }"
+            >
+              {{
+                step === 1 ? 'Data & Import' :
+                step === 2 ? 'File Handling' :
+                step === 3 ? 'Map Columns' :
+                step === 4 ? 'Process Import' : 'Summary'
+              }}
+            </div>
+            <div *ngIf="i < 4" class="wizard-arrow">
+              <!-- arrow SVG -->
+              <svg width="30" height="8" viewBox="0 0 30 8" fill="none"
+                   xmlns="http://www.w3.org/2000/svg">
+                <line x1="0" y1="4" x2="26" y2="4" stroke="black" stroke-width="2"/>
+                <polyline points="22,1 26,4 22,7" fill="none" stroke="black" stroke-width="2"/>
+              </svg>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Step Components -->
+        <app-step1-data-import
+          *ngIf="currentStep === 1"
+          (next)="onStep1Next($event)"
+        ></app-step1-data-import>
+
+        <app-step2-file-handling
+          *ngIf="currentStep === 2"
+          [importMethod]="selectedImportMethod"
+          (next)="nextStep()"
+          (back)="prevStep()"
+        ></app-step2-file-handling>
+
+        <app-step3-map-columns
+          *ngIf="currentStep === 3"
+          (next)="nextStep()"
+          (back)="prevStep()"
+        ></app-step3-map-columns>
+
+        <app-step4-process-import
+          *ngIf="currentStep === 4"
+          (back)="prevStep()"
+          (next)="nextStep()"
+        ></app-step4-process-import>
+
+        <app-step5-summary
+          *ngIf="currentStep === 5"
+          (restart)="goToStep(1)"
+          (finish)="goToStep(1)"
+        ></app-step5-summary>
+      </ng-container>
+
+      <!-- ▶ History View -->
+      <ng-container *ngIf="currentStep === -1">
+        <app-import-history></app-import-history>
+      </ng-container>
+    </div>
   </div>
-
-  <!-- Step 1 -->
-  <app-step1-data-import
-    *ngIf="currentStep === 1"
-    (next)="onStep1Next($event)"
-  ></app-step1-data-import>
-
-  <!-- Step 2 -->
-  <app-step2-file-handling
-    *ngIf="currentStep === 2"
-    [importMethod]="selectedImportMethod"
-    (next)="nextStep()"
-    (back)="prevStep()"
-  ></app-step2-file-handling>
-
-  <!-- Step 3 -->
-  <app-step3-map-columns
-    *ngIf="currentStep === 3"
-    (next)="nextStep()"
-    (back)="prevStep()"
-  ></app-step3-map-columns>
-
-  <!-- Step 4 -->
-  <app-step4-process-import
-    *ngIf="currentStep === 4"
-    (back)="prevStep()"
-    (next)="nextStep()"
-  ></app-step4-process-import>
-
-  <!-- Step 5 -->
-  <app-step5-summary
-    *ngIf="currentStep === 5"
-    (restart)="goToStep(1)"
-    (finish)="goToStep(1)"
-  ></app-step5-summary>
 </div>

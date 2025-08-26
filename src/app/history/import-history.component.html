@@ -1,0 +1,84 @@
+<div class="step-box">
+  <div class="section-title">Import History</div>
+
+  <!-- Filters + Actions -->
+  <div class="filter-bar" style="display:flex; gap:12px; align-items:end; margin-bottom:12px; flex-wrap:wrap;">
+    <div>
+      <label>From</label>
+      <input type="date" [formControl]="filterForm.controls.from" />
+    </div>
+    <div>
+      <label>To</label>
+      <input type="date" [formControl]="filterForm.controls.to" />
+    </div>
+    <div>
+      <label>Status</label>
+      <select [formControl]="filterForm.controls.status">
+        <option value="">All</option>
+        <option value="Success">Success</option>
+        <option value="Failure">Failure</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button (click)="search()">Search</button>
+      <button (click)="clear()">Clear</button>
+      <button (click)="openTotals()">View totals</button>
+      <button (click)="downloadExcel()" [disabled]="downloading">Download Excel</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table class="mapping-table">
+    <thead>
+      <tr>
+        <th>File Name</th>
+        <th>Submitted At</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let imp of imports">
+        <td>{{ imp.fileName }}</td>
+        <td>{{ imp.submittedAt | date: 'short' }}</td>
+        <td>{{ imp.status }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Pager -->
+  <div class="pagination-controls">
+    <button (click)="prevPage()" [disabled]="currentPage === 1">Previous</button>
+    <span>Page {{ currentPage }} of {{ totalPages }}</span>
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+  </div>
+</div>
+
+<!-- Simple popup/modal (reuse your styles as needed) -->
+<div *ngIf="showTotalsModal" class="modal-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:1000;">
+  <div class="modal" style="background:#fff; padding:16px 20px; width:360px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <h3 style="margin:0;">Totals (overall)</h3>
+      <button (click)="closeTotals()">✕</button>
+    </div>
+
+    <div *ngIf="totalsLoading">Loading…</div>
+    <div *ngIf="totalsError">{{ totalsError }}</div>
+
+    <div *ngIf="!totalsLoading && !totalsError">
+      <div style="display:flex; justify-content:space-between; margin:6px 0;">
+        <span>Success</span><strong>{{ totals.success }}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin:6px 0;">
+        <span>Failure</span><strong>{{ totals.failure }}</strong>
+      </div>
+      <hr />
+      <div style="display:flex; justify-content:space-between; margin:6px 0;">
+        <span>Total</span><strong>{{ totals.overall }}</strong>
+      </div>
+
+      <div style="text-align:right; margin-top:12px;">
+        <button (click)="closeTotals()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

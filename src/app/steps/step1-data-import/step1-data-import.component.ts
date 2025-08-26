@@ -1,86 +1,93 @@
-// src/app/steps/step1-data-import/step1-data-import.component.ts
 import { Component, EventEmitter, Output, OnInit } from '@angular/core';
-import { CommonModule }                             from '@angular/common';
-import { FormsModule }                              from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 
-import { CategoryHierarchyService } 
-  from '../../services/category-hierarchy.service';
+import { CategoryHierarchyService } from '../../services/category-hierarchy.service';
 import type {
   CategoryHierarchyDto,
   CategoryDto,
   SectionHierarchyDto,
   SectionColumnDto
 } from '../../services/category-hierarchy.service';
-import { TemplateService } from '../../services/template.service';
+
+import { TemplateService as ManualTemplateService } from '../../services/template.service';
+import { SaveTemplateService, SaveTemplateDto } from '../../services/save-template.service';
 
 export type ImportMethod = 'new' | 'existing';
 
 @Component({
   selector: 'app-step1-data-import',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './step1-data-import.component.html'
 })
 export class Step1DataImportComponent implements OnInit {
   @Output() next = new EventEmitter<ImportMethod>();
 
-  // ─── STEP 1 STATE ──────────────────────────────────────────────
-  categories:       CategoryDto[]                      = [];
-  sections:         SectionHierarchyDto[]              = [];
+  categories: CategoryDto[] = [];
+  sections: SectionHierarchyDto[] = [];
   columnsBySection: Record<number, SectionColumnDto[]> = {};
-  selectedColumns:  Record<number, SectionColumnDto[]> = {};
-  private fullHierarchy: CategoryHierarchyDto[]        = [];
+  selectedColumns: Record<number, SectionColumnDto[]> = {};
+  private fullHierarchy: CategoryHierarchyDto[] = [];
 
   importMethods = [
-    { value: 'new',      label: 'New Import (Manual)' },
+    { value: 'new', label: 'New Import (Manual)' },
     { value: 'existing', label: 'Existing Template' }
   ];
-  templates = ['Template A', 'Template B', 'Template C'];
+
+  templates: SaveTemplateDto[] = [];
+  selectedTemplateId?: number;
 
   category!: number;
   importMethod: ImportMethod | '' = '';
-  selectedTemplate = '';
 
-  // ─── USER FIELDS ────────────────────────────────────────────────
-  userFields:         SectionColumnDto[] = [];
+  userFields: SectionColumnDto[] = [];
   selectedUserFields: SectionColumnDto[] = [];
   private readonly mandatoryUserFields = new Set<string>([
     'FirstName', 'LastName', 'Email', 'Role', 'Printer'
   ]);
 
-  // ─── CONFIRMATION MODAL STATE ───────────────────────────────────
   showConfirmModal = false;
   private pendingCategory?: number;
-  private previousCategory?: number;
+
+  loading = true; // ← NEW
 
   constructor(
     private hierarchySvc: CategoryHierarchyService,
-    private templateSvc:   TemplateService
+    private manualTplSvc: ManualTemplateService,
+    private saveTplSvc: SaveTemplateService
   ) {}
 
   ngOnInit(): void {
+    this.loading = true;
+
     this.hierarchySvc.getAll().subscribe({
       next: hiers => {
         this.fullHierarchy = hiers;
-        this.categories     = hiers.map(h => ({
-          categoryId:  h.categoryId,
-          name:        h.name,
+        this.categories = hiers.map(h => ({
+          categoryId: h.categoryId,
+          name: h.name,
           description: h.description
         }));
+        this.loading = false;
       },
-      error: err => console.error('Could not load category hierarchy', err)
+      error: err => {
+        console.error('Could not load categories', err);
+        this.loading = false;
+      }
+    });
+
+    this.saveTplSvc.getAll().subscribe({
+      next: tpls => this.templates = tpls,
+      error: err => console.error('Could not load templates', err)
     });
   }
 
-  /** template helper for required‐field star */
-  isUserFieldMandatory(col: SectionColumnDto): boolean {
-    return this.mandatoryUserFields.has(col.columnName);
-  }
-
-  /** have they already picked something in 1B? */
+  // ─── CATEGORY LOGIC ─────────────────────────────────────────────
   private hasStep1BSelections(): boolean {
     if (this.importMethod === 'existing') {
-      return !!this.selectedTemplate.trim();
+      return this.selectedTemplateId != null;
     }
     if (this.isUsersCategory) {
       return this.selectedUserFields.length > 0;
@@ -88,13 +95,7 @@ export class Step1DataImportComponent implements OnInit {
     return Object.values(this.selectedColumns).some(arr => arr.length > 0);
   }
 
-  /**
-   * Intercept radio click before the browser toggles it.
-   * If 1B data exists, preventDefault() and show confirm modal.
-   */
   onCategoryClick(event: MouseEvent, newCat: number): void {
-    this.previousCategory = this.category;
-
     if (this.category && this.hasStep1BSelections()) {
       event.preventDefault();
       this.pendingCategory  = newCat;
@@ -104,33 +105,26 @@ export class Step1DataImportComponent implements OnInit {
     }
   }
 
-  /** user confirmed → clear 1A/1B and switch */
   onConfirmChange(): void {
     if (this.pendingCategory != null) {
-      this.clearStep1State();
       this.applyCategory(this.pendingCategory);
     }
-    this.hideModal();
-  }
-
-  /** user canceled → just hide modal (radio never toggled) */
-  onCancelChange(): void {
-    this.hideModal();
-  }
-
-  private hideModal(): void {
+    this.clearStep1State();
     this.showConfirmModal = false;
-    this.pendingCategory  = undefined;
   }
 
-  private applyCategory(catId: number): void {
+  onCancelChange(): void {
+    this.showConfirmModal = false;
+  }
+
+  private applyCategory(catId: number) {
     this.category = catId;
     this.loadSections();
   }
 
-  private clearStep1State(): void {
+  private clearStep1State() {
     this.importMethod       = '';
-    this.selectedTemplate   = '';
+    this.selectedTemplateId = undefined;
     this.selectedUserFields = [];
     this.selectedColumns    = {};
   }
@@ -172,15 +166,18 @@ export class Step1DataImportComponent implements OnInit {
     const sel = this.selectedColumns[sectionId]  || [];
     return all.length > 0 && sel.length === all.length;
   }
+
   isColumnSelected(sectionId: number, columnId: number): boolean {
     return (this.selectedColumns[sectionId] || [])
       .some(c => c.columnId === columnId);
   }
+
   toggleSectionGroup(sectionId: number, checked: boolean): void {
     this.selectedColumns[sectionId] = checked
       ? [...(this.columnsBySection[sectionId] || [])]
       : [];
   }
+
   toggleColumn(sectionId: number, col: SectionColumnDto, checked: boolean): void {
     const arr = this.selectedColumns[sectionId] || [];
     this.selectedColumns[sectionId] = checked
@@ -189,15 +186,21 @@ export class Step1DataImportComponent implements OnInit {
   }
 
   // ─── USER‐DETAILS TOGGLES ────────────────────────────────────────
+   isUserFieldMandatory(col: SectionColumnDto): boolean {
+    return this.mandatoryUserFields.has(col.columnName);
+  }
   allUserFieldsSelected(): boolean {
     return this.selectedUserFields.length === this.userFields.length;
   }
+
   toggleAllUserFields(checked: boolean): void {
     this.selectedUserFields = checked ? [...this.userFields] : [];
   }
+
   isUserFieldSelected(id: number): boolean {
     return this.selectedUserFields.some(c => c.columnId === id);
   }
+
   toggleUserField(col: SectionColumnDto, checked: boolean): void {
     const arr = this.selectedUserFields;
     this.selectedUserFields = checked
@@ -208,6 +211,7 @@ export class Step1DataImportComponent implements OnInit {
   // ─── IMPORT‐TYPE & VALIDATION ─────────────────────────────────────
   isExistingImport(): boolean { return this.importMethod === 'existing'; }
   isNewImport(): boolean      { return this.importMethod === 'new'; }
+
   isValid(): boolean {
     if (!this.category) return false;
     if (this.isUsersCategory && this.isNewImport()) {
@@ -215,17 +219,19 @@ export class Step1DataImportComponent implements OnInit {
     }
     return this.isNewImport()
       ? Object.values(this.selectedColumns).some(cols => cols.length > 0)
-      : !!this.selectedTemplate.trim();
+      : this.selectedTemplateId != null;
   }
+
   proceed(): void {
     if (this.isValid() && this.importMethod) {
       this.next.emit(this.importMethod);
     }
   }
 
-  // ─── TEMPLATE DOWNLOAD ───────────────────────────────────────────
+  // ─── MANUAL DOWNLOAD (NEW IMPORT) ────────────────────────────────
   downloadTemplate(): void {
-    let columnIds: number[];
+    let columnIds: number[] = [];
+
     if (this.isUsersCategory && this.isNewImport()) {
       columnIds = this.selectedUserFields.map(c => c.columnId);
     } else {
@@ -234,16 +240,33 @@ export class Step1DataImportComponent implements OnInit {
         .map(c => c.columnId);
     }
 
-    this.templateSvc.download(columnIds).subscribe({
+    this.manualTplSvc.download(columnIds).subscribe({
       next: blob => {
-        const url  = window.URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement('a');
+        a.href    = url;
         a.download = 'template.xlsx';
         a.click();
-        window.URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url);
       },
-      error: err => console.error('Template download failed', err)
+      error: err => console.error('Manual download failed', err)
+    });
+  }
+
+  // ─── SAVED‐TEMPLATE DOWNLOAD ─────────────────────────────────────
+  downloadSelected(): void {
+    if (!this.selectedTemplateId) return;
+    this.saveTplSvc.download(this.selectedTemplateId).subscribe({
+      next: blob => {
+        const tpl = this.templates.find(t => t.templateId === this.selectedTemplateId);
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement('a');
+        a.href    = url;
+        a.download = tpl?.name + '.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: err => console.error('Saved-template download failed', err)
     });
   }
 }

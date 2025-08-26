@@ -1,5 +1,3 @@
-// File: src/app/steps/step4-process-import/step4-process-import.component.ts
-
 import {
   Component,
   OnInit,
@@ -10,17 +8,17 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 
 import { environment } from '../../../environments/environment';
 import { ExcelService } from '../../services/excel.service';
 import { MappingService } from '../../services/mapping.service';
 import { FileStoreService } from '../../services/file-store.service';
-import { ImportSummaryService } from '../../services/import-summary.service';
-
 import { ImportResultService } from '../../services/import-result.service';
-import { ImportUserInputDto }  from '../../models/import-user-input-dto';
-import { ImportResultDto }     from '../../models/import-result-dto';
+import { UserService } from '../../services/UserService';
+import { ImportSummaryService } from '../../services/import-summary.service';
+import { ImportUserInputDto } from '../../models/import-user-input-dto';
 
 interface ServerRowValidation {
   row: number;
@@ -38,8 +36,8 @@ interface ServerRowValidation {
   templateUrl: './step4-process-import.component.html'
 })
 export class Step4ProcessImportComponent implements OnInit, OnDestroy {
-  @Output() back  = new EventEmitter<void>();
-  @Output() next  = new EventEmitter<void>();
+  @Output() back = new EventEmitter<void>();
+  @Output() next = new EventEmitter<void>();
 
   headers: string[] = [];
   records: Array<Record<string, any> & {
@@ -60,6 +58,7 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
 
   private subs = new Subscription();
 
+  // Map DB field → ImportUserInputDto key
   private dbToInputMap: Record<string, keyof ImportUserInputDto> = {
     CompanyId:    'company',
     LocationCode: 'locationCode',
@@ -77,18 +76,15 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
     private excelService: ExcelService,
     private mappingSvc: MappingService,
     private fileStore: FileStoreService,
-    private http: HttpClient,
     private importResultSvc: ImportResultService,
-    private summarySvc: ImportSummaryService
+    private userSvc: UserService,
+    private summarySvc: ImportSummaryService,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
-    this.subs.add(
-      this.mappingSvc.mappings$.subscribe(m => (this.mappings = m))
-    );
-    this.subs.add(
-      this.excelService.headers$.subscribe(h => (this.headers = h))
-    );
+    this.subs.add(this.mappingSvc.mappings$.subscribe(m => (this.mappings = m)));
+    this.subs.add(this.excelService.headers$.subscribe(h => (this.headers = h)));
     this.subs.add(
       this.excelService.rows$.subscribe(raw =>
         this.records = raw.map(r => ({
@@ -108,8 +104,7 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
   validateRecords(): void {
     const file = this.fileStore.getFile();
     if (!file) {
-      this.validationMessage =
-        '⚠️ No Excel file found. Please upload your file in Step 2.';
+      this.validationMessage = '⚠️ No Excel file found. Please upload your file in Step 2.';
       return;
     }
 
@@ -120,11 +115,7 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
     form.append('file', file, file.name);
     form.append('mappings', JSON.stringify(this.mappings));
 
-    this.http
-      .post<ServerRowValidation[]>(
-        `${environment.apiUrl}/ImportValidation/validateRows`,
-        form
-      )
+    this.http.post<ServerRowValidation[]>(`${environment.apiUrl}/ImportValidation/validateRows`, form)
       .subscribe(
         results => {
           this.records = this.records.map((r, i) => {
@@ -133,16 +124,15 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
 
             const errorText = srv.errors.join('; ');
             const errorHeaders = new Set<string>();
-
             for (const prop of srv.memberNames) {
-              const hdr = Object.entries(this.mappings).find(([h, p]) =>
-                prop === 'CompanyName'
-                  ? (p === 'Company' || p === 'CompanyId')
-                  : p === prop
+              const hdr = Object.entries(this.mappings).find(
+                ([h, p]) =>
+                  prop === 'CompanyName'
+                    ? p === 'Company' || p === 'CompanyId'
+                    : p === prop
               )?.[0];
               if (hdr) errorHeaders.add(hdr);
             }
-
             return {
               ...r,
               error: errorText,
@@ -186,42 +176,65 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
       const dto: any = {};
       for (const hdr of Object.keys(this.mappings)) {
         const dbField = this.mappings[hdr];
-        const prop    = this.dbToInputMap[dbField];
-        if (prop) {
-          let val = r[hdr];
-          if (prop === 'activate') {
-            // ensure boolean becomes lowercase string
-            val = String(val).toLowerCase();
-          }
-          dto[prop] = val;
+        const prop = this.dbToInputMap[dbField];
+        if (!prop) continue;
+        let val = r[hdr];
+        if (prop === 'activate') {
+          val = String(val).toLowerCase();
         }
+        dto[prop] = val;
       }
       return dto as ImportUserInputDto;
     });
 
-    this.importResultSvc.importUsers(inputs).subscribe(
-      (results: ImportResultDto[]) => {
-        const total      = results.length;
-        const successful = results.filter(x => x.inserted).length;
-        const failed     = total - successful;
+    // UI-only: stash the selected rows so Step 5 can show failure details later
+    const selectedForUi = inputs.map(d => ({
+      firstName: d.firstName ?? '',
+      lastName:  d.lastName  ?? '',
+      email:     (d.email ?? '').trim()
+    }));
+    sessionStorage.setItem('importSelectedRows', JSON.stringify(selectedForUi));
 
-        const failedRecords = results
-          .filter(x => !x.inserted)
-          .map(r => {
-            const rec = selected.find(s => s['Email'] === r.email)!;
-            return {
-              firstName: rec[this.getHeaderFor('FirstName')],
-              errors:    [r.errorMessage ?? 'Unknown error']
-            };
-          });
+    // We still capture a baseline count for Step 5's "Refresh" button
+    this.userSvc.getUserCount().pipe(take(1)).subscribe({
+      next: dbCount => {
+        const file = this.fileStore.getFile();
+        const fileName = file?.name || 'unknown';
 
-        this.summarySvc.setSummary({ total, successful, failed, failedRecords });
-        this.next.emit();
+        // Enqueue only — the WebJob does the inserts
+        this.importResultSvc.enqueueUsers(inputs, fileName).subscribe({
+          next: res => {
+            // Store a "queued" summary and move to Step 5 immediately
+            this.summarySvc.setSummary({
+              total: inputs.length,
+              successful: 0,
+              originalCount: dbCount,
+              failed: 0,
+              failedRecords: []
+            });
+
+            // Let Step 5 display a banner
+            sessionStorage.setItem('importQueued', JSON.stringify({
+              importMasterId: res.importMasterId,
+              queued: res.queued
+            }));
+
+            // Seed an initial status so Step 5 shows a message right away
+            sessionStorage.setItem('importStatus', 'Queued');
+
+            this.next.emit();
+          },
+          error: err => {
+            console.error('Enqueue API failed', err);
+            alert('Could not queue your import. Please try again.');
+          }
+        });
       },
-      err => {
-        console.error('Import API failed', err);
+      error: err => {
+        console.error('Could not get pre-import user count', err);
+        alert('Unable to check current DB state. Please try again.');
       }
-    );
+    });
   }
 
   onBack(): void {
@@ -229,10 +242,7 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
   }
 
   openErrorModal(r: { error: string }): void {
-    this.modalErrors = r.error
-      .split(';')
-      .map(e => e.trim())
-      .filter(Boolean);
+    this.modalErrors = r.error.split(';').map(e => e.trim()).filter(Boolean);
     this.showModal = true;
   }
 
@@ -245,18 +255,10 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
   }
 
   getErrorCount(r: { error: string }): number {
-    return r.error
-      .split(';')
-      .map(e => e.trim())
-      .filter(Boolean).length;
+    return r.error.split(';').map(e => e.trim()).filter(Boolean).length;
   }
 
   isCellInvalid(record: { errorFields: string[] }, hdr: string): boolean {
     return record.errorFields.includes(hdr);
-  }
-
-  private getHeaderFor(prop: string): string {
-    const entry = Object.entries(this.mappings).find(([_, p]) => p === prop);
-    return entry ? entry[0] : '';
   }
 }

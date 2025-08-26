@@ -1,172 +1,192 @@
-<!-- src/app/steps/step1-data-import/step1-data-import.component.html -->
 <div class="step-box">
-  <!-- STEP 1: CATEGORY -->
-  <h3 class="step-title">Step 1: Select Import Category</h3>
-  <div class="radio-options">
-    <label *ngFor="let c of categories">
-      <input
-        type="radio"
-        name="category"
-        [value]="c.categoryId"
-        [checked]="category === c.categoryId"
-        (click)="onCategoryClick($event, c.categoryId)"
-      />
-      {{ c.name }}
-    </label>
+  <!-- Loading state -->
+  <div *ngIf="loading" class="loading-state">
+    Loading categories...
   </div>
 
-  <!-- STEP 1A: IMPORT TYPE -->
-  <ng-container *ngIf="category">
-    <h3 class="step-title">Step 1A: Select Import Type</h3>
+  <!-- Fallback state -->
+  <div *ngIf="!loading && !categories.length" class="error-state">
+    No import categories available. Please try again later.
+  </div>
+
+  <!-- Main content -->
+  <div *ngIf="!loading && categories.length">
+    <!-- STEP 1: CATEGORY -->
+    <h3 class="step-title">Step 1: Select Import Category</h3>
     <div class="radio-options">
-      <label *ngFor="let m of importMethods">
+      <label *ngFor="let c of categories">
         <input
           type="radio"
-          name="importMethod"
-          [value]="m.value"
-          [(ngModel)]="importMethod"
+          name="category"
+          [value]="c.categoryId"
+          [checked]="category === c.categoryId"
+          (click)="onCategoryClick($event, c.categoryId)"
         />
-        {{ m.label }}
+        {{ c.name }}
       </label>
     </div>
-  </ng-container>
 
-  <!-- STEP 1B → NEW IMPORT -->
-  <ng-container *ngIf="category && isNewImport()">
-    <ng-container *ngIf="isUsersCategory; else multiSection">
-      <!-- User Details -->
-      <h3 class="step-title">Step 1B: User Details</h3>
-      <div class="category-group">
-        <div class="category-box">
-          <h4>
-            <input
-              type="checkbox"
-              [checked]="allUserFieldsSelected()"
-              (change)="toggleAllUserFields($any($event.target).checked)"
-            />
-            User Details
-          </h4>
-          <div class="option-items">
-            <label *ngFor="let col of userFields">
-              <input
-                type="checkbox"
-                [checked]="isUserFieldSelected(col.columnId)"
-                (change)="toggleUserField(col, $any($event.target).checked)"
-              />
-              {{ col.displayName }}
-              <span
-                *ngIf="isUserFieldMandatory(col)"
-                class="required-star"
-              >*</span>
-            </label>
-          </div>
-          <p class="required-legend">
-            <span class="required-star">*</span> Required field
-          </p>
-        </div>
-        <div class="right-panel">
-          <h3>Selected User Details</h3>
-          <select multiple size="10">
-            <option
-              *ngFor="let c of selectedUserFields"
-              (dblclick)="toggleUserField(c, false)"
-            >
-              {{ c.displayName }}
-            </option>
-          </select>
-          <p style="font-size:14px; margin-top:8px;">
-            Double-click an option to remove it.
-          </p>
-        </div>
+    <!-- STEP 1A: IMPORT TYPE -->
+    <ng-container *ngIf="category">
+      <h3 class="step-title">Step 1A: Select Import Type</h3>
+      <div class="radio-options">
+        <label *ngFor="let m of importMethods">
+          <input
+            type="radio"
+            name="importMethod"
+            [value]="m.value"
+            [(ngModel)]="importMethod"
+          />
+          {{ m.label }}
+        </label>
       </div>
     </ng-container>
 
-    <!-- Non-User Sections -->
-    <ng-template #multiSection>
-      <h3 class="step-title">Step 1B: Select Columns</h3>
-      <div class="category-group" *ngFor="let sec of sections">
-        <div class="category-box">
-          <h4>
-            <input
-              type="checkbox"
-              [checked]="areAllColumnsSelected(sec.sectionId)"
-              (change)="toggleSectionGroup(sec.sectionId, $any($event.target).checked)"
-            />
-            {{ sec.sectionName }}
-          </h4>
-          <div class="option-items">
-            <label *ngFor="let col of columnsBySection[sec.sectionId]">
+    <!-- STEP 1B → NEW IMPORT -->
+    <ng-container *ngIf="category && isNewImport()">
+      <ng-container *ngIf="isUsersCategory; else multiSection">
+        <h3 class="step-title">Step 1B: User Details</h3>
+        <div class="category-group">
+          <div class="category-box">
+            <h4>
               <input
                 type="checkbox"
-                [checked]="isColumnSelected(sec.sectionId, col.columnId)"
-                (change)="toggleColumn(sec.sectionId, col, $any($event.target).checked)"
+                [checked]="allUserFieldsSelected()"
+                (change)="toggleAllUserFields($any($event.target).checked)"
               />
-              {{ col.displayName }}
-            </label>
+              User Details
+            </h4>
+            <div class="option-items">
+              <label *ngFor="let col of userFields">
+                <input
+                  type="checkbox"
+                  [checked]="isUserFieldSelected(col.columnId)"
+                  (change)="toggleUserField(col, $any($event.target).checked)"
+                />
+                {{ col.displayName }}
+                <span *ngIf="isUserFieldMandatory(col)" class="required-star">*</span>
+              </label>
+            </div>
+            <p class="required-legend">
+              <span class="required-star">*</span> Required field
+            </p>
+          </div>
+          <div class="right-panel">
+            <h3>Selected User Details</h3>
+            <select multiple size="10">
+              <option
+                *ngFor="let c of selectedUserFields"
+                (dblclick)="toggleUserField(c, false)"
+              >
+                {{ c.displayName }}
+              </option>
+            </select>
+            <p style="font-size:14px; margin-top:8px;">
+              Double-click an option to remove it.
+            </p>
           </div>
         </div>
-        <div class="right-panel">
-          <h3>Selected {{ sec.sectionName }}</h3>
-          <select multiple size="5">
-            <option
-              *ngFor="let c of selectedColumns[sec.sectionId]"
-              (dblclick)="toggleColumn(sec.sectionId, c, false)"
-            >
-              {{ c.displayName }}
-            </option>
-          </select>
-          <p style="font-size:14px; margin-top:8px;">
-            Double-click an option to remove it.
-          </p>
+      </ng-container>
+
+      <ng-template #multiSection>
+        <h3 class="step-title">Step 1B: Select Columns</h3>
+        <div class="category-group" *ngFor="let sec of sections">
+          <div class="category-box">
+            <h4>
+              <input
+                type="checkbox"
+                [checked]="areAllColumnsSelected(sec.sectionId)"
+                (change)="toggleSectionGroup(sec.sectionId, $any($event.target).checked)"
+              />
+              {{ sec.sectionName }}
+            </h4>
+            <div class="option-items">
+              <label *ngFor="let col of columnsBySection[sec.sectionId]">
+                <input
+                  type="checkbox"
+                  [checked]="isColumnSelected(sec.sectionId, col.columnId)"
+                  (change)="toggleColumn(sec.sectionId, col, $any($event.target).checked)"
+                />
+                {{ col.displayName }}
+              </label>
+            </div>
+          </div>
+          <div class="right-panel">
+            <h3>Selected {{ sec.sectionName }}</h3>
+            <select multiple size="5">
+              <option
+                *ngFor="let c of selectedColumns[sec.sectionId]"
+                (dblclick)="toggleColumn(sec.sectionId, c, false)"
+              >
+                {{ c.displayName }}
+              </option>
+            </select>
+            <p style="font-size:14px; margin-top:8px;">
+              Double-click an option to remove it.
+            </p>
+          </div>
         </div>
+      </ng-template>
+
+      <div class="buttons">
+        <button
+          class="download-button"
+          (click)="downloadTemplate()"
+          [disabled]="!isValid()"
+        >
+          Download Template →
+        </button>
+        <button
+          class="next-button"
+          (click)="proceed()"
+          [disabled]="!isValid()"
+        >
+          Next →
+        </button>
       </div>
-    </ng-template>
+    </ng-container>
 
-    <!-- Buttons -->
-    <div class="buttons">
-      <button
-        class="download-button"
-        (click)="downloadTemplate()"
-        [disabled]="!isValid()"
-      >
-        Download Template →
-      </button>
-      <button
-        class="next-button"
-        (click)="proceed()"
-        [disabled]="!isValid()"
-      >
-        Next →
-      </button>
-    </div>
-  </ng-container>
-
-  <!-- STEP 1B → EXISTING TEMPLATE -->
-  <ng-container *ngIf="category && isExistingImport()">
-    <h3 class="step-title">Step 1B: Select a Template</h3>
-    <select [(ngModel)]="selectedTemplate" class="template-select">
-      <option value="">--Select--</option>
-      <option *ngFor="let t of templates">{{ t }}</option>
-    </select>
-    <div class="buttons">
-      <button
-        class="next-button"
-        (click)="proceed()"
-        [disabled]="!isValid()"
-      >
-        Next →
-      </button>
-    </div>
-  </ng-container>
+    <!-- STEP 1B → EXISTING TEMPLATE -->
+    <ng-container *ngIf="category && isExistingImport()">
+      <h3 class="step-title">Step 1B: Select an Existing Template</h3>
+      <div class="template-select-wrapper">
+        <select
+          [(ngModel)]="selectedTemplateId"
+          class="template-select"
+        >
+          <option [ngValue]="undefined">-- Select a template --</option>
+          <option
+            *ngFor="let tpl of templates"
+            [ngValue]="tpl.templateId"
+          >
+            {{ tpl.name }}
+          </option>
+        </select>
+      </div>
+      <div class="buttons">
+        <button
+          class="download-button"
+          (click)="downloadSelected()"
+          [disabled]="!selectedTemplateId"
+        >
+          Download Template →
+        </button>
+        <button
+          class="next-button"
+          (click)="proceed()"
+          [disabled]="!isValid()"
+        >
+          Next →
+        </button>
+      </div>
+    </ng-container>
+  </div>
 
   <!-- CONFIRMATION MODAL -->
   <div class="confirm-modal-overlay" *ngIf="showConfirmModal">
     <div class="confirm-modal">
       <h3>Confirm Category Change</h3>
-      <p>
-        You have already selected fields/templates. Changing category will
-        clear those selections. Proceed?
-      </p>
+      <p>Changing the category will clear your selections. Proceed?</p>
       <div class="confirm-modal-actions">
         <button class="btn btn-primary" (click)="onConfirmChange()">Yes</button>
         <button class="btn btn-secondary" (click)="onCancelChange()">No</button>

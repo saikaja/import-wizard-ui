@@ -15,7 +15,6 @@
   /* ─── Wizard Container & Steps ───────────────────────────────────── */
   .wizard-container {
     max-width: 1000px;
-    margin: auto;
     padding: 20px;
     background: #fff;
     border: 2px solid #ffcc00;
@@ -132,25 +131,24 @@
   }
 
   .validation-message {
-  margin-top: 2px;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #333;
-  text-align: center;
+    margin-top: 2px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    text-align: center;
 
-  &.validation-success {
-    background-color: #d4edda;  // pale green
-    color: #155724;              // dark green
-    border: 1px solid #c3e6cb;
+    &.validation-success {
+      background-color: #d4edda;  // pale green
+      color: #155724;              // dark green
+      border: 1px solid #c3e6cb;
+    }
+    &.validation-error {
+      background-color: #f8d7da;  // pale red
+      color: #721c24;             // dark red
+      border: 1px solid #f5c6cb;
+    }
   }
-
-  &.validation-error {
-    background-color: #f8d7da;  // pale red
-    color: #721c24;             // dark red
-    border: 1px solid #f5c6cb;
-  }
-}
 
   /* ─── Base Mapping Table Styles ──────────────────────────────────── */
   .mapping-table {
@@ -173,11 +171,8 @@
       white-space: nowrap;
       min-width: calc(100% / 10);
     }
-
-    /* un-bold your column headers here */
     th { font-weight: normal; }
 
-    /* explicitly size the <select>s in the mapping table */
     select {
       width: 200px;
       height: 35px;
@@ -224,11 +219,11 @@
   .invalid {
     background-color: #f8d7da !important;
   }
-  
   .invalid-cell {
-    background-color: #ffeb3b !important;  /* bright yellow fill */
-    border: 1px solid #fdd835 !important;  /* golden yellow outline */
+    background-color: #ffeb3b !important;
+    border: 1px solid #fdd835 !important;
   }
+
   /* ─── Buttons & Controls ─────────────────────────────────────────── */
   .buttons {
     display: flex;
@@ -277,7 +272,6 @@
       padding: 10px;
 
       h4 { font-size: 18px; margin-bottom: 10px; }
-
       .option-items label {
         display: block;
         margin-bottom: 6px;
@@ -442,5 +436,54 @@
   .btn-secondary {
     background-color: #999;
     color: #fff;
+  }
+
+  /* ─── Two‐column layout & sidebar outside the wizard ────────────── */
+  .layout {
+  display: flex;
+  gap: 1rem;
+  max-width: calc(1000px + 180px + 1rem); /* 1000px wizard + 180px sidebar + gap */
+  margin: 0 auto;                         /* center the two-column layout */
+}
+  .sidebar {
+    width: 180px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    padding: 1rem;
+    box-sizing: border-box;
+    flex: none; 
+
+    .menu-header {
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 0.5rem;
+    }
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+
+      li + li {
+        margin-top: 0.5rem;
+      }
+      a {
+        display: block;
+        padding: 0.5rem;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #333;
+
+        &.active,
+        &:hover {
+          background: purple;
+          color: white;
+        }
+      }
+    }
+  }
+  .content {
+    flex: 1;
   }
 }
