@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { HttpClient } from '@angular/common/http';
 
@@ -187,17 +187,19 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
       return dto as ImportUserInputDto;
     });
 
-    // UI-only: stash the selected rows so Step 5 can show failure details later
-    const selectedForUi = inputs.map(d => ({
-      firstName: d.firstName ?? '',
-      lastName:  d.lastName  ?? '',
-      email:     (d.email ?? '').trim()
-    }));
-    sessionStorage.setItem('importSelectedRows', JSON.stringify(selectedForUi));
+    // Capture a baseline count for Step 5's "Refresh" button, and find out which
+    // rows the background job will reject so Step 5 can name them.
+    const emailKeys = inputs.map(d => (d.email ?? '').trim().toLowerCase());
+    forkJoin([
+      this.userSvc.getUserCount().pipe(take(1)),
+      this.userSvc.getExistingEmails(Array.from(new Set(emailKeys))).pipe(take(1))
+    ]).subscribe({
+      next: ([dbCount, existing]) => {
+        sessionStorage.setItem(
+          'importExpectedFailures',
+          JSON.stringify(this.expectedFailures(inputs, emailKeys, existing))
+        );
 
-    // We still capture a baseline count for Step 5's "Refresh" button
-    this.userSvc.getUserCount().pipe(take(1)).subscribe({
-      next: dbCount => {
         const file = this.fileStore.getFile();
         const fileName = file?.name || 'unknown';
 
@@ -231,10 +233,33 @@ export class Step4ProcessImportComponent implements OnInit, OnDestroy {
         });
       },
       error: err => {
-        console.error('Could not get pre-import user count', err);
+        console.error('Could not run pre-import user checks', err);
         alert('Unable to check current DB state. Please try again.');
       }
     });
+  }
+
+  /**
+   * Rows the import job will skip, using its duplicate rule: the email (trimmed,
+   * lower-cased) is already in the database, or appeared earlier in this batch
+   * (rows are processed one at a time, in order).
+   */
+  private expectedFailures(inputs: ImportUserInputDto[], emailKeys: string[], existing: string[]) {
+    const taken = new Set(existing.map(e => e.trim().toLowerCase()));
+    const failures: { firstName: string; lastName: string; email: string; error: string }[] = [];
+    inputs.forEach((d, i) => {
+      const key = emailKeys[i];
+      if (taken.has(key)) {
+        failures.push({
+          firstName: d.firstName ?? '',
+          lastName:  d.lastName  ?? '',
+          email:     (d.email ?? '').trim(),
+          error:     'Email already exists'
+        });
+      }
+      taken.add(key);
+    });
+    return failures;
   }
 
   onBack(): void {

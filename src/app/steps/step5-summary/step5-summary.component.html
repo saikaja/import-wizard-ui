@@ -55,12 +55,14 @@
         <thead>
           <tr>
             <th>Name</th>
+            <th>Email</th>
             <th>Error</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let rec of failedRecords">
             <td>{{ rec.firstName }}</td>
+            <td>{{ rec.email }}</td>
             <td>
               <button
                 type="button"

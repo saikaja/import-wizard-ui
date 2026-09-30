@@ -13,4 +13,9 @@ export class UserService {
   getUserCount(): Observable<number> {
     return this.http.get<number>(`${environment.apiUrl}/users/count`);
   }
+
+  /** POST /api/users/existing-emails → the given emails (trimmed, lower-cased) already in imp.Users */
+  getExistingEmails(emails: string[]): Observable<string[]> {
+    return this.http.post<string[]>(`${environment.apiUrl}/users/existing-emails`, emails);
+  }
 }

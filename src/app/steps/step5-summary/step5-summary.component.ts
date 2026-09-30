@@ -11,10 +11,12 @@ import { ImportResultService } from '../../services/import-result.service';
 
 type ImportStatus = 'Queued' | 'Processing' | 'Completed' | 'Failed';
 
-type SelectedRowForUi = {
+// Written by Step 4 before queueing: the rows the job's duplicate-email rule will skip
+type ExpectedFailure = {
   firstName: string;
   lastName: string;
   email: string;
+  error: string;
 };
 
 @Component({
@@ -148,25 +150,18 @@ export class Step5SummaryComponent implements OnInit {
     });
   }
 
-  // Build per-row "failed" details without server calls (reason is always duplicate email)
+  // Per-row "failed" details, from the duplicate-email check Step 4 ran before queueing
   seeDetails(): void {
-    this.failedRecords = [];
     this.detailsLoaded = true;
 
-    const raw = sessionStorage.getItem('importSelectedRows');
-    const rows: SelectedRowForUi[] = raw ? JSON.parse(raw) : [];
+    const raw = sessionStorage.getItem('importExpectedFailures');
+    const rows: ExpectedFailure[] = raw ? JSON.parse(raw) : [];
 
-    const failCount = Math.max(0, this.failed);
-    if (failCount === 0 || rows.length === 0) return;
-
-    // Choose the last N rows to avoid always selecting the first ones
-    const start = Math.max(0, rows.length - failCount);
-    const slice = rows.slice(start);
-
-    this.failedRecords = slice.map(r => ({
-      firstName: r.firstName || r.email || '(unknown)',
-      errors: ['Email already exists']
-    })) as FailedRecord[];
+    this.failedRecords = rows.map(r => ({
+      firstName: `${r.firstName} ${r.lastName}`.trim() || '(no name)',
+      email: r.email,
+      errors: [r.error]
+    }));
   }
 
   openErrors(rec: FailedRecord): void {

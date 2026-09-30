@@ -225,6 +225,10 @@ export class DemoApiInterceptor implements HttpInterceptor {
       );
     }
     if (path === 'users/count') return ok(userCount);
+    if (path === 'users/existing-emails') {
+      const emails = (req.body as string[]).map(e => (e ?? '').trim().toLowerCase());
+      return ok(emails.filter(e => existingEmails.has(e)));
+    }
     if (path === 'importresult/enqueue-users') {
       const inputs = req.body as ImportUserInputDto[];
       const id = nextImportId++;
