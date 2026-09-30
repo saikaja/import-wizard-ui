@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build:demo",
+  "outputDirectory": "dist/import-wizard/browser",
+  "redirects": [
+    { "source": "/", "destination": "/wizard", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
